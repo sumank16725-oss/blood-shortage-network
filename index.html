@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BloodBridge – Predictive Emergency Blood Shortage Network</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <a href="#" class="brand" id="brandHomeLink">
+          <span class="brand-mark" aria-hidden="true">+</span>
+          <div class="brand-text">
+            <span class="brand-title">BloodBridge</span>
+            <span class="brand-sub">Shortage Intelligence</span>
+          </div>
+        </a>
+        <button class="sidebar-close" id="sidebarClose" type="button" aria-label="Close navigation">
+          &times;
+        </button>
+      </div>
+
+      <div class="sidebar-status">
+        <span class="pulse-dot"></span>
+        <span>Sample Network Live</span>
+        <span class="sim-clock" id="simClockLabel">T+0h</span>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Dashboard sections">
+        <button class="nav-item active" data-view="overview" type="button">
+          <span class="nav-icon">&#9635;</span>
+          <span>Command Overview</span>
+        </button>
+        <button class="nav-item" data-view="inventory" type="button">
+          <span class="nav-icon">&#9776;</span>
+          <span>Inventory &amp; Search</span>
+        </button>
+        <button class="nav-item" data-view="predictions" type="button">
+          <span class="nav-icon">&#8599;</span>
+          <span>Predictive Shortage</span>
+        </button>
+        <button class="nav-item" data-view="matching" type="button">
+          <span class="nav-icon">&#8644;</span>
+          <span>Hospital Matching</span>
+        </button>
+        <button class="nav-item" data-view="expiry" type="button">
+          <span class="nav-icon">&#9201;</span>
+          <span>Expiry &amp; Cold-Chain</span>
+        </button>
+        <button class="nav-item" data-view="regional" type="button">
+          <span class="nav-icon">&#9673;</span>
+          <span>Regional Map</span>
+        </button>
+        <button class="nav-item" data-view="recommendations" type="button">
+          <span class="nav-icon">&#9733;</span>
+          <span>Smart Allocation</span>
+          <span class="nav-badge" id="navRecBadge">0</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="data-disclaimer">
+          <strong>Data &amp; AI Clarity:</strong>
+          <p>
+            Hospital stock &amp; 30-day history are synthetic sample data. Forecasts use an
+            in-browser OLS + Day-of-Week model unless a <em>Demo Surge Scenario</em> is enabled.
+          </p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Mobile Backdrop -->
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <!-- Main Workspace -->
+    <div class="main-wrap">
+      <!-- Top Command Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-btn" id="menuToggleBtn" type="button" aria-label="Open menu">
+            &#9776;
+          </button>
+          <div>
+            <h1 class="page-title" id="pageTitle">Command Overview</h1>
+            <p class="page-subtitle" id="pageSubtitle">
+              Real-time emergency blood visibility across 12 hospitals &amp; regional blood banks
+            </p>
+          </div>
+        </div>
+
+        <div class="topbar-actions">
+          <span class="mode-pill mode-model" id="globalModeBadge">MODEL FORECAST</span>
+          <button class="btn btn-outline-dark btn-sm" id="simTickBtn" type="button" title="Advance 2 simulated hours">
+            +2h Sim Tick
+          </button>
+          <button class="btn btn-outline-dark btn-sm" id="autoLiveBtn" type="button" aria-pressed="false">
+            Auto-Live: Off
+          </button>
+          <button class="btn btn-danger btn-sm" id="resetDataBtn" type="button">
+            Reset Data
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Content Views -->
+      <main class="content">
+        <!-- VIEW 1: COMMAND OVERVIEW -->
+        <section class="view active" id="view-overview">
+          <!-- KPI Grid -->
+          <div class="kpi-grid">
+            <article class="kpi-card">
+              <span class="kpi-label">Total Network RBC Stock</span>
+              <strong class="kpi-value" id="kpiTotalUnits">--</strong>
+              <span class="kpi-meta" id="kpiNetworkDos">-- days avg supply</span>
+            </article>
+            <article class="kpi-card">
+              <span class="kpi-label">Connected Facilities</span>
+              <strong class="kpi-value" id="kpiFacilities">12</strong>
+              <span class="kpi-meta">4 trauma • 4 banks • 4 hospitals</span>
+            </article>
+            <article class="kpi-card kpi-card-red">
+              <span class="kpi-label">Active Critical Alerts</span>
+              <strong class="kpi-value" id="kpiCriticalAlerts">--</strong>
+              <span class="kpi-meta" id="kpiTotalAlerts">-- total active warnings</span>
+            </article>
+            <article class="kpi-card kpi-card-amber">
+              <span class="kpi-label">Expiring (&le; 7 Days)</span>
+              <strong class="kpi-value" id="kpiExpiringUnits">--</strong>
+              <span class="kpi-meta" id="kpiUrgentExpiring">-- urgent (&le; 3 days)</span>
+            </article>
+          </div>
+
+          <!-- 8 Blood Groups Availability Cards -->
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>All 8 Blood Groups — Live Network Availability</h2>
+                <p class="muted">Click any blood group card to inspect &amp; filter hospital inventory</p>
+              </div>
+              <button class="btn btn-ghost btn-sm" id="overviewToInventoryBtn" type="button">
+                Open Full Inventory &rarr;
+              </button>
+            </div>
+            <div class="blood-grid" id="bloodGroupGrid"></div>
+          </div>
+
+          <!-- Overview Charts + Alerts Row -->
+          <div class="two-col">
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Supply vs Safety Target by Blood Group</h2>
+                  <p class="muted">Gray bars = healthy network target; colored bars = live stock</p>
+                </div>
+              </div>
+              <div class="chart-box">
+                <canvas id="overviewGroupChart"></canvas>
+                <div class="chart-tooltip" id="overviewGroupTooltip"></div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Live Shortage &amp; Cold-Chain Alerts</h2>
+                  <p class="muted">Prioritized by projected stockout window</p>
+                </div>
+                <div class="pill-group" id="overviewAlertFilter">
+                  <button class="pill active" data-sev="ALL" type="button">All</button>
+                  <button class="pill" data-sev="CRITICAL" type="button">Critical</button>
+                  <button class="pill" data-sev="WATCH" type="button">Watch</button>
+                </div>
+              </div>
+              <div class="alerts-list" id="overviewAlertsList"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 2: INVENTORY & SEARCH -->
+        <section class="view" id="view-inventory">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Multi-Hospital &amp; Blood Bank Inventory</h2>
+                <p class="muted" id="inventorySummaryText">Showing all 12 connected facilities</p>
+              </div>
+              <div class="toolbar-actions">
+                <button class="btn btn-primary btn-sm" id="openUsageModalBtn" type="button">
+                  + Log Donation / Transfusion
+                </button>
+              </div>
+            </div>
+
+            <div class="filter-bar">
+              <input
+                type="search"
+                id="invSearchInput"
+                class="input"
+                placeholder="Search hospital, blood bank, city, or ID..."
+              />
+              <select id="invRegionSelect" class="input">
+                <option value="ALL">All Regions</option>
+                <option value="Metro North">Metro North</option>
+                <option value="Central Downtown">Central Downtown</option>
+                <option value="East Harbor">East Harbor</option>
+                <option value="South Valley">South Valley</option>
+              </select>
+              <select id="invTypeSelect" class="input">
+                <option value="ALL">All Facility Types</option>
+                <option value="Trauma Center (Level I)">Trauma Center</option>
+                <option value="Regional Blood Bank">Regional Blood Bank</option>
+                <option value="Community Hospital">Community Hospital</option>
+                <option value="Pediatric & Specialty">Pediatric &amp; Specialty</option>
+              </select>
+              <select id="invGroupSelect" class="input">
+                <option value="ALL">All Blood Groups</option>
+              </select>
+              <select id="invStatusSelect" class="input">
+                <option value="ALL">All Statuses</option>
+                <option value="CRITICAL">Critical Only</option>
+                <option value="WATCH">Watch Only</option>
+                <option value="OPTIMAL">Optimal Only</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" id="invClearFiltersBtn" type="button">
+                Clear Filters
+              </button>
+            </div>
+
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Facility</th>
+                    <th>Region</th>
+                    <th>Type</th>
+                    <th>O-</th>
+                    <th>O+</th>
+                    <th>A-</th>
+                    <th>A+</th>
+                    <th>B-</th>
+                    <th>B+</th>
+                    <th>AB-</th>
+                    <th>AB+</th>
+                    <th>Total</th>
+                    <th>Min DoS</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="inventoryTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Interactive Facility Detail Drawer/Panel -->
+          <div class="panel" id="facilityDetailPanel" style="display: none;">
+            <div class="panel-head">
+              <div>
+                <h2 id="detailFacilityTitle">Facility Details</h2>
+                <p class="muted" id="detailFacilityMeta"></p>
+              </div>
+              <button class="btn btn-ghost btn-sm" id="closeDetailBtn" type="button">Close</button>
+            </div>
+            <div class="detail-grid" id="detailGroupGrid"></div>
+          </div>
+        </section>
+
+        <!-- VIEW 3: PREDICTIVE SHORTAGE AI -->
+        <section class="view" id="view-predictions">
+          <div class="banner-info" id="predictionModeBanner">
+            <!-- Dynamically updated to distinguish Statistical Model vs Demo Scenario -->
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Shortage Demand Forecasting (30-Day History + 14-Day Horizon)</h2>
+                <p class="muted">Compare baseline statistical demand projections against demo emergency surges</p>
+              </div>
+            </div>
+
+            <div class="filter-bar">
+              <div class="field">
+                <label for="predFacilitySelect">Facility</label>
+                <select id="predFacilitySelect" class="input"></select>
+              </div>
+              <div class="field">
+                <label for="predGroupSelect">Blood Group</label>
+                <select id="predGroupSelect" class="input"></select>
+              </div>
+              <div class="field field-wide">
+                <label for="predScenarioSelect">Forecast Mode / Demo Scenario</label>
+                <select id="predScenarioSelect" class="input"></select>
+              </div>
+            </div>
+
+            <div class="kpi-grid kpi-grid-compact">
+              <div class="kpi-card">
+                <span class="kpi-label">Current Available Stock</span>
+                <strong class="kpi-value" id="predCurrentStock">--</strong>
+                <span class="kpi-meta" id="predModelTypeTag">--</span>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-label">14-Day Predicted Demand</span>
+                <strong class="kpi-value" id="pred14DayTotal">--</strong>
+                <span class="kpi-meta" id="predSlopeText">-- trend/day</span>
+              </div>
+              <div class="kpi-card">
+                <span class="kpi-label">Model Backtest MAE</span>
+                <strong class="kpi-value" id="predMae">--</strong>
+                <span class="kpi-meta">Units/day on 30d history</span>
+              </div>
+              <div class="kpi-card kpi-card-red">
+                <span class="kpi-label">Projected Stockout</span>
+                <strong class="kpi-value" id="predStockout">--</strong>
+                <span class="kpi-meta" id="predStockoutSub">Without transfer intervention</span>
+              </div>
+            </div>
+
+            <div class="chart-box chart-box-tall">
+              <canvas id="forecastChart"></canvas>
+              <div class="chart-tooltip" id="forecastTooltip"></div>
+            </div>
+
+            <div class="legend-row">
+              <span><i class="swatch swatch-navy"></i> Historical Demand (30d)</span>
+              <span><i class="swatch swatch-blue"></i> Statistical Model (OLS + DoW)</span>
+              <span><i class="swatch swatch-red"></i> Active Demo Scenario Overlay</span>
+              <span><i class="swatch swatch-band"></i> 90% Prediction Interval</span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Network-Wide 7-Day Shortage Risk Watchlist</h2>
+                <p class="muted">Top facility &amp; blood-group pairs approaching critical stockout</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Facility</th>
+                    <th>Region</th>
+                    <th>Group</th>
+                    <th>Stock</th>
+                    <th>7d Forecast</th>
+                    <th>Stockout ETA</th>
+                    <th>Mode</th>
+                    <th>Quick Action</th>
+                  </tr>
+                </thead>
+                <tbody id="predictionWatchlistBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 4: HOSPITAL MATCHING & TRANSFERS -->
+        <section class="view" id="view-matching">
+          <div class="two-col two-col-asym">
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Hospital-to-Hospital Blood Matcher</h2>
+                  <p class="muted">Find compatible surplus stock ranked by ABO/Rh safety, distance, and FEFO expiry</p>
+                </div>
+              </div>
+
+              <form id="matcherForm" class="form-stack">
+                <div class="field">
+                  <label for="matchTargetSelect">Requesting Hospital</label>
+                  <select id="matchTargetSelect" class="input"></select>
+                </div>
+                <div class="form-row">
+                  <div class="field">
+                    <label for="matchGroupSelect">Required Blood Group</label>
+                    <select id="matchGroupSelect" class="input"></select>
+                  </div>
+                  <div class="field">
+                    <label for="matchUnitsInput">Units Needed</label>
+                    <input type="number" id="matchUnitsInput" class="input" min="1" max="50" value="6" />
+                  </div>
+                </div>
+                <label class="checkbox-row">
+                  <input type="checkbox" id="matchAllowSubstitutes" checked />
+                  <span>Allow medically compatible RBC substitutes (e.g., O- universal donor)</span>
+                </label>
+                <button type="submit" class="btn btn-primary">Find Compatible Donors</button>
+              </form>
+
+              <hr class="divider" />
+
+              <h3>ABO / Rh RBC Compatibility Matrix</h3>
+              <div class="compat-matrix" id="compatMatrix"></div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Ranked Compatible Donor Facilities</h2>
+                  <p class="muted" id="matchResultsSubtitle">Select a hospital and blood group to compute matches</p>
+                </div>
+              </div>
+              <div id="matchResultsList" class="cards-stack"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Live Inter-Hospital Transfer Ledger</h2>
+                <p class="muted">All dispatched blood transfers update facility &amp; batch inventory immediately</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Transfer ID</th>
+                    <th>Time</th>
+                    <th>From Facility</th>
+                    <th>To Facility</th>
+                    <th>Blood Group</th>
+                    <th>Units</th>
+                    <th>Distance / ETA</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="transferLedgerBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 5: EXPIRY & COLD-CHAIN WATCH -->
+        <section class="view" id="view-expiry">
+          <div class="kpi-grid kpi-grid-compact">
+            <div class="kpi-card kpi-card-red">
+              <span class="kpi-label">Urgent Expiry (&le; 3 Days)</span>
+              <strong class="kpi-value" id="expUrgentCount">--</strong>
+              <span class="kpi-meta">Immediate FEFO routing needed</span>
+            </div>
+            <div class="kpi-card kpi-card-amber">
+              <span class="kpi-label">Expiring Soon (4–7 Days)</span>
+              <strong class="kpi-value" id="expSoonCount">--</strong>
+              <span class="kpi-meta">Schedule priority transfusion</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Healthy Shelf Life (&gt; 7 Days)</span>
+              <strong class="kpi-value" id="expHealthyCount">--</strong>
+              <span class="kpi-meta">42-day Packed RBC standard</span>
+            </div>
+            <div class="kpi-card kpi-card-red">
+              <span class="kpi-label">Cold-Chain Excursions</span>
+              <strong class="kpi-value" id="expColdAlertCount">--</strong>
+              <span class="kpi-meta">Outside 1.0°C – 6.0°C range</span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Batch-Level Expiry &amp; Cold-Chain Inventory</h2>
+                <p class="muted">FEFO (First Expired, First Out) tracking across all storage batches</p>
+              </div>
+            </div>
+
+            <div class="filter-bar">
+              <input type="search" id="expSearchInput" class="input" placeholder="Search Batch ID or facility..." />
+              <select id="expWindowSelect" class="input">
+                <option value="ALL">All Batches</option>
+                <option value="URGENT">Urgent (&le; 3 Days)</option>
+                <option value="SOON">Expiring Soon (&le; 7 Days)</option>
+                <option value="COLD">Cold-Chain Warning (&gt; 6.0°C)</option>
+                <option value="HEALTHY">Healthy (&gt; 7 Days)</option>
+              </select>
+              <select id="expGroupSelect" class="input">
+                <option value="ALL">All Blood Groups</option>
+              </select>
+            </div>
+
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Batch ID</th>
+                    <th>Facility</th>
+                    <th>Group</th>
+                    <th>Units</th>
+                    <th>Collected</th>
+                    <th>Expiry Date</th>
+                    <th>Days Left</th>
+                    <th>Temp (°C)</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="expiryTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 6: REGIONAL MAP & VISUALIZATION -->
+        <section class="view" id="view-regional">
+          <div class="two-col two-col-asym">
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Regional Network Map &amp; Transfer Corridors</h2>
+                  <p class="muted">Click any hospital (H) or blood bank (B) node to inspect stock; dashed red lines show recent transfers</p>
+                </div>
+              </div>
+              <div class="map-wrap" id="networkMapContainer"></div>
+              <div class="legend-row">
+                <span><i class="swatch swatch-green"></i> Optimal</span>
+                <span><i class="swatch swatch-amber"></i> Watch</span>
+                <span><i class="swatch swatch-red"></i> Critical</span>
+                <span><strong>B</strong> = Regional Blood Bank &bull; <strong>H</strong> = Hospital</span>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2 id="mapInspectorTitle">Facility Inspector</h2>
+                  <p class="muted" id="mapInspectorSubtitle">Click a node on the map</p>
+                </div>
+              </div>
+              <div id="mapInspectorBody"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Regional Stock vs 7-Day Projected Demand</h2>
+                <p class="muted">Compare total regional supply (Navy) against 7-day demand (Red)</p>
+              </div>
+            </div>
+            <div class="chart-box">
+              <canvas id="regionalChart"></canvas>
+              <div class="chart-tooltip" id="regionalTooltip"></div>
+            </div>
+            <div class="regional-cards" id="regionalCardsGrid"></div>
+          </div>
+        </section>
+
+        <!-- VIEW 7: SMART ALLOCATION ENGINE -->
+        <section class="view" id="view-recommendations">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Smart Resource Allocation &amp; Rescue Recommendations</h2>
+                <p class="muted">
+                  Automated recommendations combining Shortage Relief transfers, FEFO Expiry Rescue, and Regional Donor Drives
+                </p>
+              </div>
+              <button class="btn btn-primary btn-sm" id="executeTopRecBtn" type="button">
+                Execute Top Recommendation
+              </button>
+            </div>
+            <div class="cards-stack" id="recommendationsList"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Quick Modal: Log Donation / Transfusion -->
+  <div class="modal-backdrop" id="usageModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-labelledby="usageModalTitle">
+      <div class="modal-head">
+        <h2 id="usageModalTitle">Log Stock Movement (Donation or Transfusion)</h2>
+        <button class="btn btn-ghost btn-sm" id="closeUsageModalBtn" type="button">&times;</button>
+      </div>
+      <form id="usageForm" class="form-stack">
+        <div class="field">
+          <label for="usageActionType">Action Type</label>
+          <select id="usageActionType" class="input">
+            <option value="transfusion">Record Transfusion / Usage (- units via FEFO)</option>
+            <option value="donation">Log Replenishment / Donation (+ new batch)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="usageFacilitySelect">Facility</label>
+          <select id="usageFacilitySelect" class="input"></select>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="usageGroupSelect">Blood Group</label>
+            <select id="usageGroupSelect" class="input"></select>
+          </div>
+          <div class="field">
+            <label for="usageUnitsInput">Units</label>
+            <input type="number" id="usageUnitsInput" class="input" min="1" max="100" value="4" />
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="cancelUsageBtn" type="button">Cancel</button>
+          <button class="btn btn-primary" type="submit">Apply Update</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <script src="js/data.js" defer></script>
+  <script src="js/analytics.js" defer></script>
+  <script src="js/charts.js" defer></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
